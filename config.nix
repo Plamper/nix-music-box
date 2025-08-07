@@ -36,6 +36,7 @@
     22
     1234
     1780
+    8080
   ];
   networking.firewall.allowedUDPPorts = [
     80
