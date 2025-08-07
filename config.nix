@@ -18,6 +18,7 @@
   nix.settings.trusted-public-keys = [
     "nabam-nixos-rockchip.cachix.org-1:BQDltcnV8GS/G86tdvjLwLFz1WeFqSk7O9yl+DR0AVM"
   ];
+  trusted-users = ["root" "@wheel"];
 
   networking.hostName = "rock4se";
   zramSwap.enable = true;
