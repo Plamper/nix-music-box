@@ -34,7 +34,6 @@
   services.openssh.enable = true;
   networking.firewall.allowedTCPPorts = [
     22
-    80
     1234
     1780
   ];
@@ -42,6 +41,7 @@
     80
     5353
     1780
+    8080
   ];
 
   users.users.admin = {
@@ -96,7 +96,7 @@
       quality = HI_RES_LOSSLESS
 
       [http]
-      port = 80
+      port = 8080
 
       [iris]
       locale = de_DE
