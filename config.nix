@@ -18,7 +18,10 @@
   nix.settings.trusted-public-keys = [
     "nabam-nixos-rockchip.cachix.org-1:BQDltcnV8GS/G86tdvjLwLFz1WeFqSk7O9yl+DR0AVM"
   ];
-  nix.settings.trusted-users = ["root" "@wheel"];
+  nix.settings.trusted-users = [
+    "root"
+    "@wheel"
+  ];
 
   networking.hostName = "rock4se";
   zramSwap.enable = true;
@@ -29,7 +32,17 @@
   };
 
   services.openssh.enable = true;
-  networking.firewall.allowedTCPPorts = [ 22 ];
+  networking.firewall.allowedTCPPorts = [
+    22
+    80
+    1234
+    1780
+  ];
+  networking.firewall.allowedUDPPorts = [
+    80
+    5353
+    1780
+  ];
 
   users.users.admin = {
     isNormalUser = true;
@@ -51,6 +64,7 @@
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
+    systemWide = true;
     extraConfig.pipewire."10-clock-rate"."context.properties" = {
       "default.clock.rate" = 44100;
       "default.clock.allowed-rates" = [
@@ -77,7 +91,31 @@
       mopidy-tunein
       mopidy-local
     ];
+    configuration = ''
+      [tidal]
+      quality = HI_RES_LOSSLESS
+
+      [http]
+      port = 80
+
+      [iris]
+      locale = de_DE
+      country = de
+    '';
   };
+  users.users.mopidy.extraGroups = [ "pipewire" ];
+
+  # Spotify Connect
+  services.spotifyd.enable = true;
+  services.spotifyd.settings.global = {
+    device_name = "Stero Felix";
+    zeroconf_port = 1234;
+    backend = "pulseaudio";
+  };
+
+  systemd.services.spotifyd.serviceConfig.SupplementaryGroups = [
+    "pipewire"
+  ];
 
   nixpkgs.config.allowUnfree = true;
 }
