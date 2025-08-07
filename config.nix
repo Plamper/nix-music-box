@@ -31,6 +31,15 @@
     userControlled.enable = true;
   };
 
+  # Hope wifi firmware works with this
+  hardware.enableRedistributableFirmware = true;
+  hardware.firmware = with pkgs; [
+    firmwareLinuxNonfree
+    wireless-regdb
+  ];
+  boot.kernelModules = [ "brcmfmac" "brcmutil" ];
+
+
   services.openssh.enable = true;
   networking.firewall.allowedTCPPorts = [
     22
