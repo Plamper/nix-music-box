@@ -32,12 +32,14 @@
   };
 
   # Hope wifi firmware works with this
-  hardware.enableRedistributableFirmware = true;
+  hardware.enableAllFirmware = true;
   hardware.firmware = with pkgs; [
+    linux-firmware
     firmwareLinuxNonfree
     wireless-regdb
+    armbian-firmware
   ];
-  boot.kernelModules = [ "brcmfmac" "brcmutil" ];
+  hardware.deviceTree.enable = true;
 
 
   services.openssh.enable = true;
@@ -97,7 +99,7 @@
     extensionPackages = with pkgs; [
       mopidy-iris
       mopidy-jellyfin
-      mopidy-tidal
+      (pkgs.callPackage ./mopidy-tidal-unstable.nix {})
       mopidy-tunein
       mopidy-local
     ];
@@ -107,7 +109,7 @@
 
       [http]
       port = 8080
-      hostname = 0.0.0.0 
+      hostname = 0.0.0.0
 
       [iris]
       locale = de_DE
