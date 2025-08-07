@@ -98,6 +98,7 @@
 
       [http]
       port = 8080
+      hostname = 0.0.0.0 
 
       [iris]
       locale = de_DE
