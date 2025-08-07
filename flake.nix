@@ -1,11 +1,17 @@
 {
-  description = "Build example NixOS image for Quartz64A";
+  description = "Music Box on Rock4SE";
 
   inputs = {
     utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
 
-    rockchip = { url = "github:nabam/nixos-rockchip"; };
+    rockchip = {
+      url = "github:Plamper/nixos-rockchip/newer-uboot";
+    };
+
+    deploy-rs.url = "github:serokell/deploy-rs";
+
+    agenix.url = "github:ryantm/agenix";
   };
 
   # Use cache with packages from nabam/nixos-rockchip CI.
@@ -16,38 +22,81 @@
     ];
   };
 
-  outputs = { self, ... }@inputs:
+  outputs =
+    {
+      self,
+      deploy-rs,
+      nixpkgs,
+      rockchip,
+      agenix,
+      ...
+    }@inputs:
     let
-      osConfig = buildPlatform:
-        inputs.nixpkgs.lib.nixosSystem {
+
+      osConfig =
+        buildPlatform:
+        nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
           modules = [
-            inputs.rockchip.nixosModules.sdImageRockchip
-            inputs.rockchip.nixosModules.dtOverlayQuartz64ASATA
-            inputs.rockchip.nixosModules.dtOverlayPCIeFix
+            rockchip.nixosModules.sdImageRockchip
+            agenix.nixosModules.default
             ./config.nix
             {
               # Use cross-compilation for uBoot and Kernel.
-              rockchip.uBoot =
-                inputs.rockchip.packages.${buildPlatform}.uBootQuartz64A;
-              boot.kernelPackages =
-                inputs.rockchip.legacyPackages.${buildPlatform}.kernel_linux_6_6_rockchip;
+              rockchip.uBoot = rockchip.packages.${buildPlatform}.uBootRadxaRock4SE;
+              boot.kernelPackages = rockchip.legacyPackages.${buildPlatform}.kernel_linux_6_12_rockchip;
+              # nixpkgs.crossSystem = {
+              #   # target platform
+              #   system = "aarch64-linux";
+              # };
             }
           ];
         };
-    in {
+    in
+    {
       # Set buildPlatform to "x86_64-linux" to benefit from cross-compiled packages in the cache.
-      nixosConfigurations.quartz64 = osConfig "x86_64-linux";
+      nixosConfigurations.rock4se = osConfig "x86_64-linux";
 
       # Or use configuration below to compile kernel and uBoot on device.
-      # nixosConfigurations.quartz64 = osConfig "aarch64-linux";
-    } // inputs.utils.lib.eachDefaultSystem (system: {
+      # nixosConfigurations.rock4se = osConfig "aarch64-linux";
+       
+      # This is highly advised, and will prevent many possible mistakes
+      checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) deploy-rs.lib;
+
+      deploy.nodes.rock4se = {
+        hostname = "rock4se";
+        sshUser = "admin";
+        profiles.system = {
+          user = "root";
+          path = deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.rock4se;
+        };
+      };
+
+    }
+    // inputs.utils.lib.eachDefaultSystem (system: {
       # Set buildPlatform to "x86_64-linux" to benefit from cross-compiled packages in the cache.
-      packages.image = (osConfig "x86_64-linux").config.system.build.sdImage;
+      # packages.image = (osConfig "x86_64-linux").config.system.build.sdImage;
 
       # Or use configuration below to cross-compile kernel and uBoot on the current platform.
-      # packages.image = (osConfig system).config.system.build.sdImage;
+      packages.image = (osConfig system).config.system.build.sdImage;
 
       packages.default = self.packages.${system}.image;
+
+      devShell = (
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+          };
+        in
+        pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            nix
+            agenix.packages.${system}.default
+            nixd
+            git
+            deploy-rs.packages.${system}.default
+          ];
+        }
+      );
     });
 }

@@ -1,36 +1,42 @@
-{ config, pkgs, lib, ... }: {
-  system.stateVersion = "24.05";
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+{
+  system.stateVersion = "25.05";
 
-  networking.hostName = "quartz64";
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
+
+  nix.settings.trusted-substituters = [
+    "https://nabam-nixos-rockchip.cachix.org"
+  ];
+  nix.settings.trusted-public-keys = [
+    "nabam-nixos-rockchip.cachix.org-1:BQDltcnV8GS/G86tdvjLwLFz1WeFqSk7O9yl+DR0AVM"
+  ];
+
+  networking.hostName = "rock4se";
   zramSwap.enable = true;
 
   networking.wireless = {
     enable = true;
     userControlled.enable = true;
-    #    networks = {
-    #      XXX = {
-    #        psk = "XXX";
-    #      };
-    #    };
   };
 
   services.openssh.enable = true;
   networking.firewall.allowedTCPPorts = [ 22 ];
 
-  users.users.console-user = {
+  users.users.admin = {
     isNormalUser = true;
-    home = "/home/console-user";
-    description = "Virtual console user";
-    extraGroups = [ "wheel" ];
-  };
-
-  users.users.ssh-user = {
-    isNormalUser = true;
-    home = "/home/ssh-user";
-    description = "SSH user";
+    home = "/home/admin";
+    description = "Admin user";
     extraGroups = [ "wheel" ];
     openssh.authorizedKeys.keys = [
-      #      "XXX"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJKqykgN7RuOz+6YCDWYTeXfGKRHT5VXG/LJWGN1zFro felix@pc"
     ];
   };
 
@@ -39,9 +45,38 @@
     wheelNeedsPassword = false;
   };
 
-  # Automatically log in at the virtual consoles.
-  services.getty.autologinUser = "console-user";
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    extraConfig.pipewire."10-clock-rate"."context.properties" = {
+      "default.clock.rate" = 44100;
+      "default.clock.allowed-rates" = [
+        44100
+        48000
+        88200
+        96000
+        176400
+        192000
+        352800
+        384000
+        705600
+        768000
+      ];
+    };
+  };
+
+  services.mopidy = {
+    enable = true;
+    extensionPackages = with pkgs; [
+      mopidy-iris
+      mopidy-jellyfin
+      mopidy-tidal
+      mopidy-tunein
+      mopidy-local
+    ];
+  };
 
   nixpkgs.config.allowUnfree = true;
 }
-
