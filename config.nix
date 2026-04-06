@@ -1,4 +1,5 @@
 {
+  inputs,
   config,
   pkgs,
   lib,
@@ -6,6 +7,13 @@
 }:
 {
   system.stateVersion = "25.05";
+
+  nixpkgs.overlays = [
+    (final: prev: {
+      unstable = inputs.unstable.legacyPackages.${prev.system};
+      mopidy = inputs.unstable.legacyPackages.${prev.system}.mopidy;
+    })
+  ];
 
   nix.settings.experimental-features = [
     "nix-command"
@@ -26,41 +34,52 @@
   networking.hostName = "rock4se";
   zramSwap.enable = true;
 
+  age.secrets.wifi.file = ./secrets/wifi.age;
   networking.wireless = {
     enable = true;
     userControlled.enable = true;
+    networks = {
+      PLAMPER_SQ36.pskRaw = "ext:psk_home";
+    };
+    secretsFile = config.age.secrets.wifi.path;
   };
 
-  # Hope wifi firmware works with this
   hardware.enableAllFirmware = true;
-  hardware.firmware = with pkgs; [
-    linux-firmware
-    firmwareLinuxNonfree
-    wireless-regdb
-    armbian-firmware
-  ];
   hardware.deviceTree.enable = true;
 
-
   services.openssh.enable = true;
-  networking.firewall.allowedTCPPorts = [
-    22
-    1234
-    1780
-    8080
+  networking.firewall.enable = false;
+
+  environment.systemPackages = with pkgs; [
+    alsa-utils
+    cifs-utils
+    helix
+    tmux
   ];
-  networking.firewall.allowedUDPPorts = [
-    80
-    5353
-    1780
-    8080
-  ];
+
+  fileSystems."/mnt/music" = {
+    device = "//Diener-F2/music";
+    fsType = "cifs";
+    options =
+      let
+        automount_opts = "x-systemd.automount,noauto,x-systemd.idle-timeout=60,x-systemd.device-timeout=5s,x-systemd.mount-timeout=5s,user,users,ro";
+
+      in
+      [ "${automount_opts},credentials=/etc/nixos/smb-secrets,uid=130,gid=130" ];
+    # or if you have specified `uid` and `gid` explicitly through NixOS configuration,
+    # you can refer to them rather than hard-coding the values:
+    # in ["${automount_opts},credentials=/etc/nixos/smb-secrets,${config.users.users.<username>.uid},gid=${config.users.groups.<group>.gid}"];
+  };
 
   users.users.admin = {
     isNormalUser = true;
     home = "/home/admin";
     description = "Admin user";
-    extraGroups = [ "wheel" ];
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+      "pipewire"
+    ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJKqykgN7RuOz+6YCDWYTeXfGKRHT5VXG/LJWGN1zFro felix@pc"
     ];
@@ -71,64 +90,34 @@
     wheelNeedsPassword = false;
   };
 
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-    systemWide = true;
-    extraConfig.pipewire."10-clock-rate"."context.properties" = {
-      "default.clock.rate" = 44100;
-      "default.clock.allowed-rates" = [
-        44100
-        48000
-        88200
-        96000
-        176400
-        192000
-        352800
-        384000
-        705600
-        768000
-      ];
-    };
-  };
-
   services.mopidy = {
     enable = true;
-    extensionPackages = with pkgs; [
+    extensionPackages = with pkgs.unstable; [
       mopidy-iris
       mopidy-jellyfin
-      (pkgs.callPackage ./mopidy-tidal-unstable.nix {})
+      mopidy-tidal
       mopidy-tunein
       mopidy-local
     ];
-    configuration = ''
-      [tidal]
-      quality = HI_RES_LOSSLESS
-
-      [http]
-      port = 8080
-      hostname = 0.0.0.0
-
-      [iris]
-      locale = de_DE
-      country = de
-    '';
+    settings = {
+      tidal.quality = "HI_RES_LOSSLESS";
+      http = {
+        port = 8080;
+        hostname = "0.0.0.0";
+      };
+      iris = {
+        locale = "de_DE";
+        country = "de";
+      };
+      audio.output = "alsasink device=hw:2,0";
+      jellyfin = {
+        hostname = "192.168.178.141";
+        username = "Mopidy";
+        password = "";
+      };
+      local.media_dir = "/mnt/music";
+    };
   };
-  users.users.mopidy.extraGroups = [ "pipewire" ];
-
-  # Spotify Connect
-  services.spotifyd.enable = true;
-  services.spotifyd.settings.global = {
-    device_name = "Stero Felix";
-    zeroconf_port = 1234;
-    backend = "pulseaudio";
-  };
-
-  systemd.services.spotifyd.serviceConfig.SupplementaryGroups = [
-    "pipewire"
-  ];
 
   nixpkgs.config.allowUnfree = true;
 }

@@ -3,10 +3,11 @@
 
   inputs = {
     utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     rockchip = {
-      url = "github:Plamper/nixos-rockchip/newer-uboot";
+      url = "github:plamper/nixos-rockchip/25.11";
     };
 
     deploy-rs.url = "github:serokell/deploy-rs";
@@ -37,6 +38,7 @@
         buildPlatform:
         nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
+          specialArgs = { inherit inputs; };
           modules = [
             rockchip.nixosModules.sdImageRockchip
             agenix.nixosModules.default
@@ -44,11 +46,14 @@
             {
               # Use cross-compilation for uBoot and Kernel.
               rockchip.uBoot = rockchip.packages.${buildPlatform}.uBootRadxaRock4SE;
-              boot.kernelPackages = rockchip.legacyPackages.${buildPlatform}.kernel_linux_6_12_rockchip;
-              # nixpkgs.crossSystem = {
-              #   # target platform
-              #   system = "aarch64-linux";
-              # };
+              boot.kernelPackages = rockchip.legacyPackages.${buildPlatform}.kernel_linux_latest_rockchip_stable;
+              nixpkgs.overlays = [
+                (final: super: {
+                  zfs = super.zfs.overrideAttrs (_: {
+                    meta.platforms = [ ];
+                  });
+                })
+              ];
             }
           ];
         };
@@ -59,12 +64,12 @@
 
       # Or use configuration below to compile kernel and uBoot on device.
       # nixosConfigurations.rock4se = osConfig "aarch64-linux";
-       
+
       # This is highly advised, and will prevent many possible mistakes
       checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) deploy-rs.lib;
 
       deploy.nodes.rock4se = {
-        hostname = "rock4se";
+        hostname = "192.168.178.139";
         sshUser = "admin";
         profiles.system = {
           user = "root";
@@ -75,10 +80,10 @@
     }
     // inputs.utils.lib.eachDefaultSystem (system: {
       # Set buildPlatform to "x86_64-linux" to benefit from cross-compiled packages in the cache.
-      # packages.image = (osConfig "x86_64-linux").config.system.build.sdImage;
+      packages.image = (osConfig "x86_64-linux").config.system.build.sdImage;
 
       # Or use configuration below to cross-compile kernel and uBoot on the current platform.
-      packages.image = (osConfig system).config.system.build.sdImage;
+      # packages.image = (osConfig system).config.system.build.sdImage;
 
       packages.default = self.packages.${system}.image;
 
